@@ -26,7 +26,12 @@ type model struct {
 func initialModel() model {
 	ti := textarea.New()
 	ti.Focus()
-
+	ti.SetValue(`
+aaaa
+bbbbbbbbbbb
+cccccc
+dd
+`)
 	return model{
 		textarea: ti,
 		err:      nil,

@@ -22,6 +22,8 @@ const (
 type KeyMap struct {
 	CharacterBackward       key.Binding
 	CharacterForward        key.Binding
+	LineNext                key.Binding
+	LinePrevious            key.Binding
 	DeleteCharacterBackward key.Binding
 	InsertNewline           key.Binding
 }
@@ -31,6 +33,8 @@ var DefaultKeyMap = KeyMap{
 	CharacterBackward:       key.NewBinding(key.WithKeys("left", "ctrl+b")),
 	InsertNewline:           key.NewBinding(key.WithKeys("enter", "ctrl+m")),
 	DeleteCharacterBackward: key.NewBinding(key.WithKeys("backspace", "ctrl+h")),
+	LineNext:                key.NewBinding(key.WithKeys("down", "ctrl+n")),
+	LinePrevious:            key.NewBinding(key.WithKeys("up", "ctrl+p")),
 }
 
 type Model struct {
@@ -46,6 +50,10 @@ type Model struct {
 
 	// KeyMap encodes the keybindings recognized by the widget.
 	KeyMap KeyMap
+
+	// Last character offset, used to maintain state when the cursor is moved
+	// vertically such that we can maintain the same navigating position.
+	lastCharOffset int
 
 	// viewport is the vertically-scrollable viewport of the multi-line text
 	// input.
@@ -130,6 +138,114 @@ func (m *Model) mergeLineAbove(row int) {
 	}
 }
 
+// cursorDown moves the cursor down by one line.
+// Returns whether or not the cursor blink should be reset.
+func (m *Model) cursorDown() {
+	if m.row < len(m.value)-1 {
+		m.row++
+		// m.col = 0
+		if len(m.value[m.row]) <= m.col {
+			m.col = len(m.value[m.row])
+		}
+	}
+}
+
+// cursorUp moves the cursor up by one line.
+func (m *Model) cursorUp() {
+	if m.row > 0 {
+		m.row--
+		if len(m.value[m.row]) < m.col {
+			m.col = len(m.value[m.row])
+		}
+	}
+}
+
+// Reset sets the input to its default state with no input.
+func (m *Model) Reset() {
+	m.value = make([][]rune, minHeight, maxHeight)
+	m.col = 0
+	m.row = 0
+	m.viewport.GotoTop()
+	m.SetCursor(0)
+}
+
+// SetValue sets the value of the text input.
+func (m *Model) SetValue(s string) {
+	m.Reset()
+	m.InsertString(s)
+}
+
+// InsertString inserts a string at the cursor position.
+func (m *Model) InsertString(s string) {
+	lines := strings.Split(s, "\n")
+	for l, line := range lines {
+		for _, rune := range line {
+			m.InsertRune(rune)
+		}
+		if l != len(lines)-1 {
+			m.InsertRune('\n')
+		}
+	}
+}
+
+// InsertRune inserts a rune at the cursor position.
+func (m *Model) InsertRune(r rune) {
+	if r == '\n' {
+		m.splitLine(m.row, m.col)
+		return
+	}
+
+	m.value[m.row] = append(m.value[m.row][:m.col], append([]rune{r}, m.value[m.row][m.col:]...)...)
+	m.col++
+}
+
+// cursorRight moves the cursor one character to the right.
+func (m *Model) cursorRight() {
+	if m.col < len(m.value[m.row]) {
+		m.SetCursor(m.col + 1)
+	} else {
+		if m.row < len(m.value)-1 {
+			m.row++
+			m.CursorStart()
+		}
+	}
+}
+
+// cursorLeft moves the cursor one character to the left.
+// If insideLine is set, the cursor is moved to the last
+// character in the previous line, instead of one past that.
+func (m *Model) cursorLeft(insideLine bool) {
+	if m.col == 0 && m.row != 0 {
+		m.row--
+		m.CursorEnd()
+		if !insideLine {
+			return
+		}
+	}
+	if m.col > 0 {
+		m.SetCursor(m.col - 1)
+	}
+}
+
+// CursorEnd moves the cursor to the end of the input field.
+func (m *Model) CursorEnd() {
+	m.SetCursor(len(m.value[m.row]))
+}
+
+// CursorStart moves the cursor to the start of the input field.
+func (m *Model) CursorStart() {
+	m.SetCursor(0)
+}
+
+// SetCursor moves the cursor to the given position. If the position is
+// out of bounds the cursor will be moved to the start or end accordingly.
+func (m *Model) SetCursor(col int) {
+	m.col = clamp(col, 0, len(m.value[m.row]))
+	// Any time that we move the cursor horizontally we need to reset the last
+	// offset so that the horizontal position when navigating is adjusted.
+	m.lastCharOffset = 0
+}
+
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	// var cmd tea.Cmd
@@ -138,7 +254,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.KeyMap.CharacterForward):
+			m.cursorRight()
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
+			m.cursorLeft(false /* insideLine */)
 		case key.Matches(msg, m.KeyMap.DeleteCharacterBackward):
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col <= 0 {
@@ -147,10 +265,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			if len(m.value[m.row]) > 0 {
 				m.value[m.row] = append(m.value[m.row][:max(0, m.col-1)], m.value[m.row][m.col:]...)
-				// if m.col > 0 {
-				// 	m.SetCursor(m.col - 1)
-				// }
+				if m.col > 0 {
+					m.SetCursor(m.col - 1)
+				}
 			}
+		case key.Matches(msg, m.KeyMap.LineNext):
+			m.cursorDown()
+		case key.Matches(msg, m.KeyMap.LinePrevious):
+			m.cursorUp()
 		case key.Matches(msg, m.KeyMap.InsertNewline):
 			if len(m.value) >= maxHeight {
 				return m, nil
@@ -167,8 +289,23 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// Value returns the value of the text input.
+func (m Model) Value() string {
+	if m.value == nil {
+		return ""
+	}
+
+	var v strings.Builder
+	for _, l := range m.value {
+		v.WriteString(string(l))
+		v.WriteByte('\n')
+	}
+
+	return strings.TrimSuffix(v.String(), "\n")
+}
+
 func (m Model) View() string {
-	style := lipgloss.NewStyle().Background(lipgloss.Color("1"))
+	cursorStyle := lipgloss.NewStyle().Background(lipgloss.Color("1"))
 
 	sb := new(strings.Builder)
 
@@ -180,39 +317,18 @@ func (m Model) View() string {
 		}
 		for ic, c := range r {
 			if ic == m.col && needCursor {
-				sb.WriteString(style.Render(string(c)))
+				sb.WriteString(cursorStyle.Render(string(c)))
 				haveCursor = true
 			} else {
 				sb.WriteRune(c)
 			}
 		}
 		if needCursor && !haveCursor {
-			sb.WriteString(style.Render(" "))
+			sb.WriteString(cursorStyle.Render(" "))
 		}
 		sb.WriteString("\n")
 	}
 
 	m.viewport.SetContent(sb.String())
 	return m.viewport.View()
-}
-
-func clamp(v, low, high int) int {
-	if high < low {
-		low, high = high, low
-	}
-	return min(high, max(low, v))
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
