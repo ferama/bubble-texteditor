@@ -354,22 +354,26 @@ func (m Model) View() string {
 		if ir == m.row {
 			needCursor = true
 		}
-		sb.WriteString(m.style.LineTilde.Render("~ "))
+		sb.WriteString(m.style.LineTilde.Render("• "))
+
+		lsb := new(strings.Builder)
 		for ic, c := range r {
+			// do not render offsetted columns
 			if m.col+lineTildeWidth >= m.viewport.Width && ic <= m.xOffset {
 				continue
 			}
 
 			if ic == m.col && needCursor {
-				sb.WriteString(cursorStyle.Render(string(c)))
+				lsb.WriteString(cursorStyle.Render(string(c)))
 				haveCursor = true
 			} else {
-				sb.WriteRune(c)
+				lsb.WriteRune(c)
 			}
 		}
 		if needCursor && !haveCursor {
-			sb.WriteString(cursorStyle.Render(" "))
+			lsb.WriteString(cursorStyle.Render(" "))
 		}
+		sb.WriteString(lsb.String())
 		sb.WriteString("\n")
 	}
 

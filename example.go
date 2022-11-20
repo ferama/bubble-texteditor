@@ -13,7 +13,7 @@ var style = lipgloss.NewStyle().
 	Border(lipgloss.NormalBorder())
 
 const (
-	width  = 20
+	width  = 30
 	height = 20
 )
 
@@ -35,8 +35,7 @@ type model struct {
 func initialModel() model {
 	ti := textarea.New()
 	ti.Focus()
-	ti.SetValue(`
-12345
+	ti.SetValue(`12345
 bbbbbbbbbbb
 cccccc
 dd
