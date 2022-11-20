@@ -16,6 +16,8 @@ const (
 	defaultWidth  = 40
 	maxHeight     = 99
 	maxWidth      = 500
+
+	lineTildeWidth = 2 // a tilde and a space
 )
 
 // KeyMap is the key bindings for different actions within the textarea.
@@ -59,15 +61,31 @@ type Model struct {
 	// input.
 	viewport *viewport.Model
 
+	// Styling. FocusedStyle and BlurredStyle are used to style the textarea in
+	// focused and blurred states.
+	FocusedStyle Style
+	BlurredStyle Style
+	// style is the current styling to use.
+	// It is used to abstract the differences in focus state when styling the
+	// model, since we can simply assign the set of styles to this variable
+	// when switching focus states.
+	style *Style
+
 	xOffset int
 }
 
 func New() Model {
 	vp := viewport.New(0, 0)
 
+	focusedStyle, blurredStyle := DefaultStyles()
+
 	m := Model{
 		focused:  true,
 		viewport: &vp,
+
+		style:        &blurredStyle,
+		FocusedStyle: focusedStyle,
+		BlurredStyle: blurredStyle,
 
 		col: 0,
 		row: 0,
@@ -89,11 +107,13 @@ func (m Model) Init() tea.Cmd {
 
 func (m *Model) Focus() tea.Cmd {
 	m.focused = true
+	m.style = &m.FocusedStyle
 	return nil
 }
 
 func (m *Model) Blur() tea.Cmd {
 	m.focused = false
+	m.style = &m.BlurredStyle
 	return nil
 }
 
@@ -256,7 +276,7 @@ func (m *Model) SetCursor(col int) {
 
 func (m *Model) updateXOffset() {
 	curDiff := len(m.value[m.row]) - m.col
-	diff := len(m.value[m.row]) - m.viewport.Width - curDiff
+	diff := len(m.value[m.row]) - (m.viewport.Width - lineTildeWidth) - curDiff
 	if diff >= 0 {
 		m.xOffset = diff
 	}
@@ -334,8 +354,9 @@ func (m Model) View() string {
 		if ir == m.row {
 			needCursor = true
 		}
+		sb.WriteString(m.style.LineTilde.Render("~ "))
 		for ic, c := range r {
-			if m.col >= m.viewport.Width && ic <= m.xOffset {
+			if m.col+lineTildeWidth >= m.viewport.Width && ic <= m.xOffset {
 				continue
 			}
 
