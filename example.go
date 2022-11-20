@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ferama/bubble-textarea/textarea"
+	"github.com/ferama/bubble-texteditor/texteditor"
 )
 
 var style = lipgloss.NewStyle().
@@ -28,12 +28,12 @@ func main() {
 type errMsg error
 
 type model struct {
-	textarea textarea.Model
-	err      error
+	texteditor texteditor.Model
+	err        error
 }
 
 func initialModel() model {
-	ti := textarea.New()
+	ti := texteditor.New()
 	ti.Focus()
 	ti.SetValue(`12345
 bbbbbbbbbbb
@@ -43,8 +43,8 @@ dd
 	ti.SetSize(width, height)
 	style.Width(width).Height(height)
 	return model{
-		textarea: ti,
-		err:      nil,
+		texteditor: ti,
+		err:        nil,
 	}
 }
 
@@ -60,14 +60,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
-			if m.textarea.Focused() {
-				m.textarea.Blur()
+			if m.texteditor.Focused() {
+				m.texteditor.Blur()
 			}
 		case tea.KeyCtrlC:
 			return m, tea.Quit
 		default:
-			if !m.textarea.Focused() {
-				cmd = m.textarea.Focus()
+			if !m.texteditor.Focused() {
+				cmd = m.texteditor.Focus()
 				cmds = append(cmds, cmd)
 			}
 		}
@@ -78,7 +78,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.textarea, cmd = m.textarea.Update(msg)
+	m.texteditor, cmd = m.texteditor.Update(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
@@ -87,7 +87,7 @@ func (m model) View() string {
 
 	return fmt.Sprintf(
 		"Type some text...\n\n%s\n\n%s",
-		style.Render(m.textarea.View()),
+		style.Render(m.texteditor.View()),
 		"(ctrl+c to quit)",
 	) + "\n\n"
 }

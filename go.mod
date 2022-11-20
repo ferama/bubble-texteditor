@@ -1,4 +1,4 @@
-module github.com/ferama/bubble-textarea
+module github.com/ferama/bubble-texteditor
 
 go 1.19
 

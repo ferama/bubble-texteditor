@@ -1,4 +1,4 @@
-package textarea
+package texteditor
 
 import (
 	"strings"
@@ -171,7 +171,6 @@ func (m *Model) mergeLineAbove(row int) {
 func (m *Model) cursorDown() {
 	if m.row < len(m.value)-1 {
 		m.row++
-		// m.col = 0
 		if len(m.value[m.row]) <= m.col {
 			m.col = len(m.value[m.row])
 		}

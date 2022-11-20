@@ -1,4 +1,4 @@
-package textarea
+package texteditor
 
 func clamp(v, low, high int) int {
 	if high < low {

@@ -1,4 +1,4 @@
-package textarea
+package texteditor
 
 import "github.com/charmbracelet/lipgloss"
 
