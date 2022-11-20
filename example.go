@@ -5,7 +5,16 @@ import (
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/ferama/bubble-textarea/textarea"
+)
+
+var style = lipgloss.NewStyle().
+	Border(lipgloss.NormalBorder())
+
+const (
+	width  = 20
+	height = 20
 )
 
 func main() {
@@ -27,11 +36,13 @@ func initialModel() model {
 	ti := textarea.New()
 	ti.Focus()
 	ti.SetValue(`
-aaaa
+12345
 bbbbbbbbbbb
 cccccc
 dd
 `)
+	ti.SetSize(width, height)
+	style.Width(width).Height(height)
 	return model{
 		textarea: ti,
 		err:      nil,
@@ -74,9 +85,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+
 	return fmt.Sprintf(
 		"Type some text...\n\n%s\n\n%s",
-		m.textarea.View(),
+		style.Render(m.textarea.View()),
 		"(ctrl+c to quit)",
 	) + "\n\n"
 }

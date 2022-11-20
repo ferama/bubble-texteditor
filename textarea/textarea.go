@@ -58,6 +58,8 @@ type Model struct {
 	// viewport is the vertically-scrollable viewport of the multi-line text
 	// input.
 	viewport *viewport.Model
+
+	xOffset int
 }
 
 func New() Model {
@@ -70,7 +72,8 @@ func New() Model {
 		col: 0,
 		row: 0,
 
-		KeyMap: DefaultKeyMap,
+		xOffset: 0,
+		KeyMap:  DefaultKeyMap,
 
 		value: make([][]rune, minHeight, maxHeight),
 	}
@@ -96,6 +99,11 @@ func (m *Model) Blur() tea.Cmd {
 
 func (m Model) Focused() bool {
 	return m.focused
+}
+
+func (m Model) SetSize(width, height int) {
+	m.viewport.Width = width
+	m.viewport.Height = height
 }
 
 func (m *Model) splitLine(row, col int) {
@@ -246,6 +254,14 @@ func (m *Model) SetCursor(col int) {
 	m.lastCharOffset = 0
 }
 
+func (m *Model) updateXOffset() {
+	curDiff := len(m.value[m.row]) - m.col
+	diff := len(m.value[m.row]) - m.viewport.Width - curDiff
+	if diff >= 0 {
+		m.xOffset = diff
+	}
+}
+
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	// var cmd tea.Cmd
@@ -285,6 +301,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.col = clamp(m.col+len(msg.Runes), 0, len(m.value[m.row]))
 		}
 	}
+	m.updateXOffset()
 
 	return m, tea.Batch(cmds...)
 }
@@ -305,7 +322,9 @@ func (m Model) Value() string {
 }
 
 func (m Model) View() string {
-	cursorStyle := lipgloss.NewStyle().Background(lipgloss.Color("1"))
+	cursorStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("1")).
+		Bold(true)
 
 	sb := new(strings.Builder)
 
@@ -316,6 +335,10 @@ func (m Model) View() string {
 			needCursor = true
 		}
 		for ic, c := range r {
+			if m.col >= m.viewport.Width && ic <= m.xOffset {
+				continue
+			}
+
 			if ic == m.col && needCursor {
 				sb.WriteString(cursorStyle.Render(string(c)))
 				haveCursor = true
