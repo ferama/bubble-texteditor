@@ -36,7 +36,7 @@ func clearBackground(style *chroma.Style) *chroma.Style {
 	return style
 }
 
-func applyStyle(entry chroma.StyleEntry) string {
+func applyTheme(entry chroma.StyleEntry) string {
 	out := ""
 
 	if !entry.IsZero() {
@@ -67,7 +67,7 @@ func customFormatterFunc(w io.Writer, theme *chroma.Style, it chroma.Iterator, h
 	for token := it(); token != chroma.EOF; token = it() {
 
 		entry := theme.Get(token.Type)
-		fmt.Fprint(w, applyStyle(entry))
+		fmt.Fprint(w, applyTheme(entry))
 
 		if hasCursor && column+len(token.Value) > cursorColumn && !doneWithCursor {
 			pos := cursorColumn - column
@@ -79,8 +79,8 @@ func customFormatterFunc(w io.Writer, theme *chroma.Style, it chroma.Iterator, h
 			fmt.Fprint(w, preCursor)
 			fmt.Fprint(w, style.Cursor.Render(cursor))
 
-			// reapply style resetted by cursor
-			fmt.Fprint(w, applyStyle(entry))
+			// reapply theme resetted by cursor
+			fmt.Fprint(w, applyTheme(entry))
 			fmt.Fprint(w, postCursor)
 			doneWithCursor = true
 		} else {
