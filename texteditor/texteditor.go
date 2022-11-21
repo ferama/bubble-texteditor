@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -72,6 +71,9 @@ type Model struct {
 	style *Style
 
 	xOffset int
+
+	syntaxLang       string
+	highlighterStyle string
 }
 
 func New() Model {
@@ -83,9 +85,10 @@ func New() Model {
 		focused:  true,
 		viewport: &vp,
 
-		style:        &blurredStyle,
-		FocusedStyle: focusedStyle,
-		BlurredStyle: blurredStyle,
+		highlighterStyle: "monokai",
+		style:            &blurredStyle,
+		FocusedStyle:     focusedStyle,
+		BlurredStyle:     blurredStyle,
 
 		col: 0,
 		row: 0,
@@ -119,6 +122,10 @@ func (m *Model) Blur() tea.Cmd {
 
 func (m Model) Focused() bool {
 	return m.focused
+}
+
+func (m *Model) SetSyntax(syntax string) {
+	m.syntaxLang = syntax
 }
 
 func (m Model) SetSize(width, height int) {
@@ -341,10 +348,6 @@ func (m Model) Value() string {
 }
 
 func (m Model) View() string {
-	cursorStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("1")).
-		Bold(true)
-
 	sb := new(strings.Builder)
 
 	for ir, r := range m.value {
@@ -354,8 +357,9 @@ func (m Model) View() string {
 			needCursor = true
 		}
 		sb.WriteString(m.style.LineTilde.Render("• "))
-
 		lsb := new(strings.Builder)
+
+		cursorColumn := 0
 		for ic, c := range r {
 			// do not render offsetted columns
 			if m.col+lineTildeWidth >= m.viewport.Width && ic <= m.xOffset {
@@ -363,16 +367,23 @@ func (m Model) View() string {
 			}
 
 			if ic == m.col && needCursor {
-				lsb.WriteString(cursorStyle.Render(string(c)))
+				cursorColumn = ic
 				haveCursor = true
-			} else {
-				lsb.WriteRune(c)
 			}
+			lsb.WriteRune(c)
+
 		}
+
 		if needCursor && !haveCursor {
-			lsb.WriteString(cursorStyle.Render(" "))
+			lsb.WriteString(" ")
+			cursorColumn = len(r)
+			haveCursor = true
 		}
-		sb.WriteString(lsb.String())
+
+		hlsbs := new(strings.Builder)
+		highlight(hlsbs, lsb.String(), m.syntaxLang, m.highlighterStyle, haveCursor, cursorColumn)
+		sb.WriteString(hlsbs.String())
+
 		sb.WriteString("\n")
 	}
 

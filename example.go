@@ -33,17 +33,16 @@ type model struct {
 }
 
 func initialModel() model {
-	ti := texteditor.New()
-	ti.Focus()
-	ti.SetValue(`12345
-bbbbbbbbbbb
-cccccc
-dd
-`)
-	ti.SetSize(width, height)
+	te := texteditor.New()
+	te.Focus()
+	te.SetSyntax("sql")
+	te.SetValue(`select *
+from tab1
+where id=120`)
+	te.SetSize(width, height)
 	style.Width(width).Height(height)
 	return model{
-		texteditor: ti,
+		texteditor: te,
 		err:        nil,
 	}
 }
