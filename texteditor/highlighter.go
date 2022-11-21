@@ -7,25 +7,20 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/charmbracelet/lipgloss"
 )
-
-var cursorStyle = lipgloss.NewStyle().
-	Background(lipgloss.Color("1")).
-	Bold(true)
 
 // A FormatterFunc is a Formatter implemented as a function.
 //
 // Guards against iterator panics.
-type FormatterFunc func(w io.Writer, style *chroma.Style, iterator chroma.Iterator, hasCursor bool, cursorColumn int) error
+type FormatterFunc func(w io.Writer, theme *chroma.Style, iterator chroma.Iterator, hasCursor bool, cursorColumn int, style *Style) error
 
-func (f FormatterFunc) Format(w io.Writer, s *chroma.Style, it chroma.Iterator, hasCursor bool, cursorColumn int) (err error) { // nolint
+func (f FormatterFunc) Format(w io.Writer, s *chroma.Style, it chroma.Iterator, hasCursor bool, cursorColumn int, style *Style) (err error) { // nolint
 	defer func() {
 		if perr := recover(); perr != nil {
 			err = perr.(error)
 		}
 	}()
-	return f(w, s, it, hasCursor, cursorColumn)
+	return f(w, s, it, hasCursor, cursorColumn, style)
 }
 
 var customFormatter = FormatterFunc(customFormatterFunc)
@@ -64,15 +59,14 @@ func applyStyle(entry chroma.StyleEntry) string {
 	return out
 }
 
-func customFormatterFunc(w io.Writer, style *chroma.Style, it chroma.Iterator, hasCursor bool, cursorColumn int) error {
-	style = clearBackground(style)
+func customFormatterFunc(w io.Writer, theme *chroma.Style, it chroma.Iterator, hasCursor bool, cursorColumn int, style *Style) error {
+	theme = clearBackground(theme)
 
 	column := 0
 	doneWithCursor := false
 	for token := it(); token != chroma.EOF; token = it() {
 
-		entry := style.Get(token.Type)
-
+		entry := theme.Get(token.Type)
 		fmt.Fprint(w, applyStyle(entry))
 
 		if hasCursor && column+len(token.Value) > cursorColumn && !doneWithCursor {
@@ -83,9 +77,9 @@ func customFormatterFunc(w io.Writer, style *chroma.Style, it chroma.Iterator, h
 			postCursor := tv[pos+1:]
 
 			fmt.Fprint(w, preCursor)
-			fmt.Fprint(w, cursorStyle.Render(cursor))
+			fmt.Fprint(w, style.Cursor.Render(cursor))
 
-			// reapply style resetted from cursor
+			// reapply style resetted by cursor
 			fmt.Fprint(w, applyStyle(entry))
 			fmt.Fprint(w, postCursor)
 			doneWithCursor = true
@@ -104,7 +98,7 @@ func customFormatterFunc(w io.Writer, style *chroma.Style, it chroma.Iterator, h
 
 // highlight some text.
 // Lexer, formatter and style may be empty, in which case a best-effort is made.
-func highlight(w io.Writer, source, lexer, style string, hasCursor bool, cursorColumn int) error {
+func highlight(w io.Writer, source, lexer, theme string, hasCursor bool, cursorColumn int, style *Style) error {
 	// Determine lexer.
 	l := lexers.Get(lexer)
 	if l == nil {
@@ -118,7 +112,7 @@ func highlight(w io.Writer, source, lexer, style string, hasCursor bool, cursorC
 	f := customFormatter
 
 	// Determine style.
-	s := styles.Get(style)
+	s := styles.Get(theme)
 	if s == nil {
 		s = styles.Fallback
 	}
@@ -127,5 +121,5 @@ func highlight(w io.Writer, source, lexer, style string, hasCursor bool, cursorC
 	if err != nil {
 		return err
 	}
-	return f.Format(w, s, it, hasCursor, cursorColumn)
+	return f.Format(w, s, it, hasCursor, cursorColumn, style)
 }

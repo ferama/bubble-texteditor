@@ -381,7 +381,7 @@ func (m Model) View() string {
 		}
 
 		hlsbs := new(strings.Builder)
-		highlight(hlsbs, lsb.String(), m.syntaxLang, m.highlighterStyle, haveCursor, cursorColumn)
+		highlight(hlsbs, lsb.String(), m.syntaxLang, m.highlighterStyle, haveCursor, cursorColumn, m.style)
 		sb.WriteString(hlsbs.String())
 
 		sb.WriteString("\n")
