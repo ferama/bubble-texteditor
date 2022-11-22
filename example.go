@@ -41,7 +41,6 @@ from tab1
 where id=120 and f='breaking line test'
 `)
 	te.SetSize(width, height)
-	style.Width(width).Height(height)
 	return model{
 		texteditor: te,
 		err:        nil,

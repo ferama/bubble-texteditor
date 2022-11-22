@@ -321,6 +321,10 @@ func (m *Model) updateXOffset() {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+	if !m.focused {
+		return m, nil
+	}
+
 	var cmds []tea.Cmd
 	// var cmd tea.Cmd
 
@@ -360,6 +364,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	}
 	m.updateXOffset()
+
+	vp, cmd := m.viewport.Update(msg)
+	m.viewport = &vp
+	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }
