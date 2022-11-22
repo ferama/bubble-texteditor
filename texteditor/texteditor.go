@@ -19,7 +19,7 @@ const (
 
 	lineDecoratorWidth = 3 // a tilde and a space
 
-	defaultSyntaxColorStyle = "native"
+	defaultSyntaxColorStyle = "monokai"
 )
 
 // KeyMap is the key bindings for different actions within the textarea.

@@ -32,7 +32,7 @@ func DefaultStyles() (Style, Style) {
 	blurred := Style{
 		Base:          lipgloss.NewStyle(),
 		Cursor:        lipgloss.NewStyle(),
-		LineDecorator: lineDecoratorBase.Copy().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "7"}),
+		LineDecorator: lineDecoratorBase.Copy().Foreground(lipgloss.AdaptiveColor{Light: "249", Dark: "8"}),
 		Text:          lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "245", Dark: "7"}),
 	}
 
