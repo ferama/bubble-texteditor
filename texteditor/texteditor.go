@@ -278,14 +278,14 @@ func (m *Model) SetCursor(col int) {
 	// Any time that we move the cursor horizontally we need to reset the last
 	// offset so that the horizontal position when navigating is adjusted.
 	m.lastCharOffset = 0
-	m.xOffset = 0
 }
 
 func (m *Model) updateXOffset() {
-	curDiff := len(m.value[m.row]) - m.col - lineTildeWidth + 1
-	diff := len(m.value[m.row]) - (m.viewport.Width - lineTildeWidth) - curDiff
+	diff := m.col - m.viewport.Width + lineTildeWidth + 1
 	if diff >= 0 {
 		m.xOffset = diff
+	} else {
+		m.xOffset = 0
 	}
 }
 
