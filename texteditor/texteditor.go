@@ -278,10 +278,11 @@ func (m *Model) SetCursor(col int) {
 	// Any time that we move the cursor horizontally we need to reset the last
 	// offset so that the horizontal position when navigating is adjusted.
 	m.lastCharOffset = 0
+	m.xOffset = 0
 }
 
 func (m *Model) updateXOffset() {
-	curDiff := len(m.value[m.row]) - m.col
+	curDiff := len(m.value[m.row]) - m.col - lineTildeWidth + 1
 	diff := len(m.value[m.row]) - (m.viewport.Width - lineTildeWidth) - curDiff
 	if diff >= 0 {
 		m.xOffset = diff
@@ -351,37 +352,32 @@ func (m Model) View() string {
 	sb := new(strings.Builder)
 
 	for ir, r := range m.value {
-		needCursor := false
 		haveCursor := false
 		if ir == m.row {
-			needCursor = true
+			haveCursor = true
 		}
 		sb.WriteString(m.style.LineTilde.Render("• "))
 		lsb := new(strings.Builder)
 
-		cursorColumn := 0
-		for ic, c := range r {
-			// do not render offsetted columns
-			if m.col+lineTildeWidth >= m.viewport.Width && ic <= m.xOffset {
-				continue
-			}
-
-			if ic == m.col && needCursor {
-				cursorColumn = ic
-				haveCursor = true
-			}
+		for _, c := range r {
 			lsb.WriteRune(c)
-
 		}
 
-		if needCursor && !haveCursor {
+		if m.col >= len(r) {
 			lsb.WriteString(" ")
-			cursorColumn = len(r)
-			haveCursor = true
 		}
 
 		hlsbs := new(strings.Builder)
-		highlight(hlsbs, lsb.String(), m.syntaxLang, m.highlighterStyle, haveCursor, cursorColumn, m.style)
+		renderLine(
+			hlsbs,
+			lsb.String(),
+			m.syntaxLang,
+			m.highlighterStyle,
+			haveCursor,
+			m.col,
+			m.style,
+			m.xOffset,
+		)
 		sb.WriteString(hlsbs.String())
 
 		sb.WriteString("\n")

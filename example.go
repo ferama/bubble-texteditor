@@ -13,7 +13,7 @@ var style = lipgloss.NewStyle().
 	Border(lipgloss.NormalBorder())
 
 const (
-	width  = 30
+	width  = 34
 	height = 20
 )
 
@@ -38,7 +38,8 @@ func initialModel() model {
 	te.SetSyntax("sql")
 	te.SetValue(`select *
 from tab1
-where id=120`)
+where id=120 and f='breaking line test'
+`)
 	te.SetSize(width, height)
 	style.Width(width).Height(height)
 	return model{

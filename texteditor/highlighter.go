@@ -9,22 +9,6 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 )
 
-// A FormatterFunc is a Formatter implemented as a function.
-//
-// Guards against iterator panics.
-type FormatterFunc func(w io.Writer, theme *chroma.Style, iterator chroma.Iterator, hasCursor bool, cursorColumn int, style *Style) error
-
-func (f FormatterFunc) Format(w io.Writer, s *chroma.Style, it chroma.Iterator, hasCursor bool, cursorColumn int, style *Style) (err error) { // nolint
-	defer func() {
-		if perr := recover(); perr != nil {
-			err = perr.(error)
-		}
-	}()
-	return f(w, s, it, hasCursor, cursorColumn, style)
-}
-
-var customFormatter = FormatterFunc(customFormatterFunc)
-
 // Clear the background colour.
 func clearBackground(style *chroma.Style) *chroma.Style {
 	builder := style.Builder()
@@ -59,17 +43,38 @@ func applyTheme(entry chroma.StyleEntry) string {
 	return out
 }
 
-func customFormatterFunc(w io.Writer, theme *chroma.Style, it chroma.Iterator, hasCursor bool, cursorColumn int, style *Style) error {
+func format(w io.Writer,
+	theme *chroma.Style,
+	it chroma.Iterator,
+	hasCursor bool,
+	cursorColumn int,
+	style *Style,
+	xOffset int) error {
+
 	theme = clearBackground(theme)
 
 	column := 0
 	doneWithCursor := false
 	for token := it(); token != chroma.EOF; token = it() {
+		columnNext := column + len(token.Value)
+
+		// do not render offsetted columns
+		if column < xOffset {
+			if columnNext >= xOffset {
+				diff := xOffset - column
+				token.Value = token.Value[diff:]
+				cursorColumn += diff
+				columnNext += diff
+			} else {
+				column += len(token.Value)
+				continue
+			}
+		}
 
 		entry := theme.Get(token.Type)
 		fmt.Fprint(w, applyTheme(entry))
 
-		if hasCursor && column+len(token.Value) > cursorColumn && !doneWithCursor {
+		if hasCursor && columnNext > cursorColumn && !doneWithCursor {
 			pos := cursorColumn - column
 			tv := token.Value
 			preCursor := tv[0:pos]
@@ -84,6 +89,10 @@ func customFormatterFunc(w io.Writer, theme *chroma.Style, it chroma.Iterator, h
 			fmt.Fprint(w, postCursor)
 			doneWithCursor = true
 		} else {
+			// for _, c := range token.Value {
+			// 	fmt.Fprint(w, applyTheme(entry))
+			// 	fmt.Fprintf(w, "%c", c)
+			// }
 			fmt.Fprint(w, token.Value)
 		}
 
@@ -91,14 +100,23 @@ func customFormatterFunc(w io.Writer, theme *chroma.Style, it chroma.Iterator, h
 			fmt.Fprint(w, "\033[0m")
 		}
 
-		column += len(token.Value)
+		column = columnNext
 	}
 	return nil
 }
 
-// highlight some text.
+// renderLine some text.
 // Lexer, formatter and style may be empty, in which case a best-effort is made.
-func highlight(w io.Writer, source, lexer, theme string, hasCursor bool, cursorColumn int, style *Style) error {
+func renderLine(
+	w io.Writer,
+	source,
+	lexer,
+	theme string,
+	hasCursor bool,
+	cursorColumn int,
+	style *Style,
+	xOffset int) (err error) {
+
 	// Determine lexer.
 	l := lexers.Get(lexer)
 	if l == nil {
@@ -108,8 +126,6 @@ func highlight(w io.Writer, source, lexer, theme string, hasCursor bool, cursorC
 		l = lexers.Fallback
 	}
 	l = chroma.Coalesce(l)
-
-	f := customFormatter
 
 	// Determine style.
 	s := styles.Get(theme)
@@ -121,5 +137,11 @@ func highlight(w io.Writer, source, lexer, theme string, hasCursor bool, cursorC
 	if err != nil {
 		return err
 	}
-	return f.Format(w, s, it, hasCursor, cursorColumn, style)
+
+	defer func() {
+		if perr := recover(); perr != nil {
+			err = perr.(error)
+		}
+	}()
+	return format(w, s, it, hasCursor, cursorColumn, style, xOffset)
 }
