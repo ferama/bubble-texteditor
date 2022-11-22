@@ -89,10 +89,6 @@ func format(w io.Writer,
 			fmt.Fprint(w, postCursor)
 			doneWithCursor = true
 		} else {
-			// for _, c := range token.Value {
-			// 	fmt.Fprint(w, applyTheme(entry))
-			// 	fmt.Fprintf(w, "%c", c)
-			// }
 			fmt.Fprint(w, token.Value)
 		}
 
