@@ -105,8 +105,7 @@ func format(w io.Writer,
 	return nil
 }
 
-// renderLine some text.
-// Lexer, formatter and style may be empty, in which case a best-effort is made.
+// renderLine renders code line applying syntax highlights and handling cursor
 func renderLine(
 	w io.Writer,
 	source,

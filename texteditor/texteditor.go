@@ -379,7 +379,6 @@ func (m Model) View() string {
 			m.xOffset,
 		)
 		sb.WriteString(hlsbs.String())
-
 		sb.WriteString("\n")
 	}
 
