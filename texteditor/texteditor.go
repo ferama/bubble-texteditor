@@ -1,6 +1,7 @@
 package texteditor
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -16,7 +17,9 @@ const (
 	maxHeight     = 99
 	maxWidth      = 500
 
-	lineTildeWidth = 2 // a tilde and a space
+	lineDecoratorWidth = 4 // a tilde and a space
+
+	defaultSyntaxColorStyle = "monokai"
 )
 
 // KeyMap is the key bindings for different actions within the textarea.
@@ -39,6 +42,7 @@ var DefaultKeyMap = KeyMap{
 }
 
 type Model struct {
+	// The focus status
 	focused bool
 
 	// Underlying text value.
@@ -64,15 +68,21 @@ type Model struct {
 	// focused and blurred states.
 	FocusedStyle Style
 	BlurredStyle Style
+
 	// style is the current styling to use.
 	// It is used to abstract the differences in focus state when styling the
 	// model, since we can simply assign the set of styles to this variable
 	// when switching focus states.
 	style *Style
 
+	// How many columns should be hidden
 	xOffset int
 
-	syntaxLang       string
+	// if set enable syntax highlight.
+	// available syntaxes come from chroma https://github.com/alecthomas/chroma
+	syntaxLang string
+
+	// syntax color style
 	highlighterStyle string
 }
 
@@ -85,7 +95,7 @@ func New() Model {
 		focused:  true,
 		viewport: &vp,
 
-		highlighterStyle: "monokai",
+		highlighterStyle: defaultSyntaxColorStyle,
 		style:            &blurredStyle,
 		FocusedStyle:     focusedStyle,
 		BlurredStyle:     blurredStyle,
@@ -108,28 +118,47 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
+// Activate focus on the texteditor
 func (m *Model) Focus() tea.Cmd {
 	m.focused = true
 	m.style = &m.FocusedStyle
+
+	m.style.LineDecorator.Width(lineDecoratorWidth)
 	return nil
 }
 
+// Deactivate focus
 func (m *Model) Blur() tea.Cmd {
 	m.focused = false
 	m.style = &m.BlurredStyle
+
+	m.style.LineDecorator.Width(lineDecoratorWidth)
 	return nil
 }
 
+// Reports focus status
 func (m Model) Focused() bool {
 	return m.focused
 }
 
+// SetSyntax lexer
 func (m *Model) SetSyntax(syntax string) {
 	m.syntaxLang = syntax
 }
 
+// Set textarea size
 func (m Model) SetSize(width, height int) {
+	m.SetWidth(width)
+	m.SetHeight(height)
+}
+
+// Set textarea width
+func (m Model) SetWidth(width int) {
 	m.viewport.Width = width
+}
+
+// Set textarea height
+func (m Model) SetHeight(height int) {
 	m.viewport.Height = height
 }
 
@@ -280,8 +309,10 @@ func (m *Model) SetCursor(col int) {
 	m.lastCharOffset = 0
 }
 
+// updates current x offset using info from current
+// cursor position and underlying viewport size
 func (m *Model) updateXOffset() {
-	diff := m.col - m.viewport.Width + lineTildeWidth + 1
+	diff := m.col - m.viewport.Width + lineDecoratorWidth + 1
 	if diff >= 0 {
 		m.xOffset = diff
 	} else {
@@ -356,7 +387,7 @@ func (m Model) View() string {
 		if ir == m.row {
 			haveCursor = true
 		}
-		sb.WriteString(m.style.LineTilde.Render("• "))
+		sb.WriteString(m.style.LineDecorator.Render(fmt.Sprint(ir + 1)))
 		lsb := new(strings.Builder)
 
 		for _, c := range r {
