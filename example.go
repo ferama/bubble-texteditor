@@ -13,8 +13,8 @@ var style = lipgloss.NewStyle().
 	Border(lipgloss.NormalBorder())
 
 const (
-	width  = 34
-	height = 20
+	width  = 60
+	height = 10
 )
 
 func main() {
@@ -41,6 +41,8 @@ from tab1
 where id=120 and f='breaking line test'
 `)
 	te.SetSize(width, height)
+	style.Width(width)
+	style.Height(height)
 	return model{
 		texteditor: te,
 		err:        nil,

@@ -17,9 +17,9 @@ const (
 	maxHeight     = 99
 	maxWidth      = 500
 
-	lineDecoratorWidth = 4 // a tilde and a space
+	lineDecoratorWidth = 3 // a tilde and a space
 
-	defaultSyntaxColorStyle = "monokai"
+	defaultSyntaxColorStyle = "native"
 )
 
 // KeyMap is the key bindings for different actions within the textarea.
@@ -290,6 +290,19 @@ func (m *Model) cursorLeft(insideLine bool) {
 	}
 }
 
+// repositionView repositions the view of the viewport based on the defined
+// scrolling behavior.
+func (m *Model) repositionView() {
+	min := m.viewport.YOffset
+	max := min + m.viewport.Height - 1
+
+	if row := m.row; row < min {
+		m.viewport.LineUp(min - row)
+	} else if row > max {
+		m.viewport.LineDown(row - max)
+	}
+}
+
 // CursorEnd moves the cursor to the end of the input field.
 func (m *Model) CursorEnd() {
 	m.SetCursor(len(m.value[m.row]))
@@ -364,6 +377,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 	}
 	m.updateXOffset()
+	m.repositionView()
 
 	vp, cmd := m.viewport.Update(msg)
 	m.viewport = &vp
@@ -422,5 +436,5 @@ func (m Model) View() string {
 	}
 
 	m.viewport.SetContent(sb.String())
-	return m.viewport.View()
+	return m.style.Base.Render(m.viewport.View())
 }
