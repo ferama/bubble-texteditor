@@ -418,7 +418,7 @@ func (m Model) Value() string {
 }
 
 // renderLine renders code line applying syntax highlights and handling cursor
-func (m Model) renderLine(w io.Writer, source string, hasCursor bool, cursorColumn int) error {
+func (m Model) renderLine(w io.Writer, source string, hasCursor bool) error {
 	lexer := m.syntaxLang
 
 	// Determine lexer.
@@ -445,6 +445,7 @@ func (m Model) renderLine(w io.Writer, source string, hasCursor bool, cursorColu
 	theme := clearBackground(m.chromaStyle)
 	column := 0
 	doneWithCursor := false
+	cursorColumn := m.col
 	for token := it(); token != chroma.EOF; token = it() {
 		columnNext := column + len(token.Value)
 
@@ -543,7 +544,6 @@ func (m Model) View() string {
 			hlsbs,
 			lsb.String(),
 			haveCursor,
-			m.xOffset,
 		)
 		if haveCursor {
 			sb.WriteString(m.style.CursorLine.Render(hlsbs.String()))
