@@ -13,7 +13,7 @@ var style = lipgloss.NewStyle().
 	Border(lipgloss.NormalBorder())
 
 const (
-	width  = 60
+	width  = 40
 	height = 10
 )
 
@@ -85,7 +85,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 
 	return fmt.Sprintf(
-		"Type some text...\n\n%s\n\n%s",
+		"\n%s\n\n%s",
 		style.Render(m.texteditor.View()),
 		"(ctrl+c to quit)",
 	) + "\n\n"
