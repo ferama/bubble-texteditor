@@ -81,11 +81,10 @@ func initialModel() model {
 	te := texteditor.New()
 	te.Focus()
 	te.SetSyntax("sql")
-	te.SetValue(`selec`)
-	// 	te.SetValue(`select *
-	// from tab1
-	// where id=120 and f='breaking line test'
-	// `)
+	// te.SetValue(`selec`)
+	te.SetValue(`select *
+from tab1
+where id=120 and f='èasd'`)
 	te.SetSize(width, height)
 	te.Intellisense = intellisense
 	return model{

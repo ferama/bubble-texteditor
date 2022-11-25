@@ -401,7 +401,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			} else {
 				m.suggestionSelector.Blur()
 				item := m.suggestionSelector.SelectedItem()
-				m.InsertString(item.Value)
+				if item != nil {
+					m.InsertString(item.Value)
+				}
 				m.suggestionSelector.Reset()
 			}
 		default:
@@ -515,7 +517,7 @@ func (m *Model) renderLine(w io.Writer, source string, hasCursor bool) error {
 	cursorColumn := m.col
 
 	for token := it(); token != chroma.EOF; token = it() {
-		columnNext := column + len(token.Value)
+		columnNext := column + len([]rune(token.Value))
 
 		// do not render offsetted columns
 		if column < m.xOffset {
@@ -535,17 +537,18 @@ func (m *Model) renderLine(w io.Writer, source string, hasCursor bool) error {
 
 		if hasCursor && columnNext > cursorColumn && !doneWithCursor {
 			pos := cursorColumn - column
-			tv := token.Value
+			tv := []rune(token.Value)
+
 			preCursor := tv[0:pos]
 			cursor := tv[pos : pos+1]
 			postCursor := tv[pos+1:]
 
-			fmt.Fprint(w, preCursor)
-			fmt.Fprint(w, m.style.Cursor.Render(cursor))
+			fmt.Fprint(w, string(preCursor))
+			fmt.Fprint(w, m.style.Cursor.Render(string(cursor)))
 
 			// reapply theme resetted by cursor
 			fmt.Fprint(w, m.applyTheme(entry, hasCursor))
-			fmt.Fprint(w, postCursor)
+			fmt.Fprint(w, string(postCursor))
 			doneWithCursor = true
 
 		} else {
