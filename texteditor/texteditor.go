@@ -11,6 +11,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/ferama/bubble-texteditor/texteditor/selector"
 )
 
 const (
@@ -43,11 +45,6 @@ var DefaultKeyMap = KeyMap{
 	DeleteCharacterBackward: key.NewBinding(key.WithKeys("backspace", "ctrl+h")),
 	LineNext:                key.NewBinding(key.WithKeys("down", "ctrl+n")),
 	LinePrevious:            key.NewBinding(key.WithKeys("up", "ctrl+p")),
-}
-
-type IntellisenseItem struct {
-	Value string
-	Kind  string
 }
 
 type Model struct {
@@ -96,7 +93,8 @@ type Model struct {
 	// syntax color style
 	highlighterStyle string
 
-	Intellisense func(chroma.Token) []IntellisenseItem
+	Intellisense       func(chroma.Token) []selector.IntellisenseItem
+	suggestionSelector selector.Model
 }
 
 func New() Model {
@@ -127,6 +125,8 @@ func New() Model {
 		KeyMap:  DefaultKeyMap,
 
 		value: make([][]rune, minHeight, maxHeight),
+
+		suggestionSelector: selector.New(),
 	}
 
 	vp.Width = defaultWidth
@@ -357,9 +357,9 @@ func (m *Model) updateXOffset() {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	if !m.focused {
-		return m, nil
-	}
+	// if !m.focused {
+	// 	return m, nil
+	// }
 
 	var cmds []tea.Cmd
 	// var cmd tea.Cmd
@@ -384,15 +384,26 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.KeyMap.LineNext):
-			m.cursorDown()
-		case key.Matches(msg, m.KeyMap.LinePrevious):
-			m.cursorUp()
-		case key.Matches(msg, m.KeyMap.InsertNewline):
-			if len(m.value) >= maxHeight {
-				return m, nil
+			if !m.suggestionSelector.Focused() {
+				m.cursorDown()
 			}
-			m.col = clamp(m.col, 0, len(m.value[m.row]))
-			m.splitLine(m.row, m.col)
+		case key.Matches(msg, m.KeyMap.LinePrevious):
+			if !m.suggestionSelector.Focused() {
+				m.cursorUp()
+			}
+		case key.Matches(msg, m.KeyMap.InsertNewline):
+			if !m.suggestionSelector.Focused() {
+				if len(m.value) >= maxHeight {
+					return m, nil
+				}
+				m.col = clamp(m.col, 0, len(m.value[m.row]))
+				m.splitLine(m.row, m.col)
+			} else {
+				m.suggestionSelector.Blur()
+				item := m.suggestionSelector.SelectedItem()
+				m.InsertString(item.Value)
+				m.suggestionSelector.Reset()
+			}
 		default:
 			m.col = min(m.col, len(m.value[m.row]))
 			m.value[m.row] = append(m.value[m.row][:m.col], append(msg.Runes, m.value[m.row][m.col:]...)...)
@@ -400,7 +411,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 			if m.Intellisense != nil {
 				if token, err := m.getCurrentToken(); err == nil {
-					m.Intellisense(*token)
+					items := m.Intellisense(*token)
+					m.suggestionSelector.SetItems(items)
+					if len(items) > 0 {
+						m.suggestionSelector.Focus()
+					}
 				}
 			}
 		}
@@ -408,8 +423,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	m.updateXOffset()
 	m.repositionView()
 
-	vp, cmd := m.viewport.Update(msg)
-	m.viewport = &vp
+	if !m.suggestionSelector.Focused() {
+		vp, cmd := m.viewport.Update(msg)
+		m.viewport = &vp
+		cmds = append(cmds, cmd)
+	}
+
+	_, cmd := m.suggestionSelector.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
@@ -601,6 +621,9 @@ func (m Model) View() string {
 
 		if hasCursor {
 			sb.WriteString(m.style.cursorLine.Render(hlsbs.String()))
+
+			m.suggestionSelector.SetOffset(m.col + lineDecoratorWidth)
+			sb.WriteString(m.suggestionSelector.View())
 		} else {
 			sb.WriteString(hlsbs.String())
 		}
@@ -608,5 +631,11 @@ func (m Model) View() string {
 	}
 
 	m.viewport.SetContent(sb.String())
-	return m.style.Base.Render(m.viewport.View())
+	// return m.style.Base.Render(m.viewport.View())
+
+	// m.suggestionSelector.View()
+	return m.style.Base.Render(lipgloss.JoinVertical(
+		lipgloss.Left,
+		m.viewport.View(),
+	))
 }

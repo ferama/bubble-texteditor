@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ferama/bubble-texteditor/texteditor"
+	"github.com/ferama/bubble-texteditor/texteditor/selector"
 )
 
 var style = lipgloss.NewStyle().
@@ -33,8 +34,44 @@ type model struct {
 	err        error
 }
 
-func intellisense(t chroma.Token) []texteditor.IntellisenseItem {
-	res := make([]texteditor.IntellisenseItem, 0)
+func intellisense(t chroma.Token) []selector.IntellisenseItem {
+	resEmpty := make([]selector.IntellisenseItem, 0)
+	resFull := append(resEmpty,
+		selector.IntellisenseItem{
+			Value: "table1",
+			Kind:  "table",
+		},
+		selector.IntellisenseItem{
+			Value: "table2",
+			Kind:  "table",
+		},
+		selector.IntellisenseItem{
+			Value: "table3",
+			Kind:  "table",
+		},
+		selector.IntellisenseItem{
+			Value: "table4",
+			Kind:  "table",
+		},
+		selector.IntellisenseItem{
+			Value: "table5",
+			Kind:  "table",
+		},
+	)
+
+	var res []selector.IntellisenseItem
+
+	switch t.Type {
+	case chroma.Keyword:
+		switch t.Value {
+		case "select":
+			res = resFull
+		default:
+			res = resEmpty
+		}
+	default:
+		res = resEmpty
+	}
 
 	fmt.Printf("\033[2K\r%s: %s", t.Type, t.Value)
 	return res
@@ -44,6 +81,7 @@ func initialModel() model {
 	te := texteditor.New()
 	te.Focus()
 	te.SetSyntax("sql")
+	te.SetValue(`selec`)
 	// 	te.SetValue(`select *
 	// from tab1
 	// where id=120 and f='breaking line test'
