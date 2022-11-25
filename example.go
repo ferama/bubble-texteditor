@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/alecthomas/chroma/v2"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ferama/bubble-texteditor/texteditor"
@@ -32,15 +33,23 @@ type model struct {
 	err        error
 }
 
+func intellisense(t chroma.Token) []texteditor.IntellisenseItem {
+	res := make([]texteditor.IntellisenseItem, 0)
+
+	fmt.Printf("\033[2K\r%s: %s", t.Type, t.Value)
+	return res
+}
+
 func initialModel() model {
 	te := texteditor.New()
 	te.Focus()
 	te.SetSyntax("sql")
-	te.SetValue(`select *
-from tab1
-where id=120 and f='breaking line test'
-`)
+	// 	te.SetValue(`select *
+	// from tab1
+	// where id=120 and f='breaking line test'
+	// `)
 	te.SetSize(width, height)
+	te.Intellisense = intellisense
 	return model{
 		texteditor: te,
 		err:        nil,

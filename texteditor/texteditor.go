@@ -45,6 +45,11 @@ var DefaultKeyMap = KeyMap{
 	LinePrevious:            key.NewBinding(key.WithKeys("up", "ctrl+p")),
 }
 
+type IntellisenseItem struct {
+	Value string
+	Kind  string
+}
+
 type Model struct {
 	// The focus status
 	focused bool
@@ -90,6 +95,8 @@ type Model struct {
 
 	// syntax color style
 	highlighterStyle string
+
+	Intellisense func(chroma.Token) []IntellisenseItem
 }
 
 func New() Model {
@@ -390,6 +397,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.col = min(m.col, len(m.value[m.row]))
 			m.value[m.row] = append(m.value[m.row][:m.col], append(msg.Runes, m.value[m.row][m.col:]...)...)
 			m.col = clamp(m.col+len(msg.Runes), 0, len(m.value[m.row]))
+
+			if m.Intellisense != nil {
+				if token, err := m.getCurrentToken(); err == nil {
+					m.Intellisense(*token)
+				}
+			}
 		}
 	}
 	m.updateXOffset()
@@ -417,8 +430,42 @@ func (m Model) Value() string {
 	return strings.TrimSuffix(v.String(), "\n")
 }
 
+func (m *Model) getCurrentToken() (*chroma.Token, error) {
+
+	runes := m.value[m.row]
+	line := new(strings.Builder)
+	for _, c := range runes {
+		line.WriteRune(c)
+	}
+	source := line.String()
+
+	lexer := m.syntaxLang
+
+	// Determine lexer.
+	l := lexers.Get(lexer)
+	if l == nil {
+		l = lexers.Analyse(source)
+	}
+	if l == nil {
+		l = lexers.Fallback
+	}
+	l = chroma.Coalesce(l)
+
+	it, err := l.Tokenise(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	var lastToken, currentToken chroma.Token
+	for token := it(); token != chroma.EOF; token = it() {
+		lastToken = currentToken
+		currentToken = token
+	}
+
+	return &lastToken, nil
+}
+
 // renderLine renders code line applying syntax highlights and handling cursor
-func (m Model) renderLine(w io.Writer, source string, hasCursor bool) error {
+func (m *Model) renderLine(w io.Writer, source string, hasCursor bool) error {
 	lexer := m.syntaxLang
 
 	// Determine lexer.
@@ -480,6 +527,7 @@ func (m Model) renderLine(w io.Writer, source string, hasCursor bool) error {
 			fmt.Fprint(w, m.applyTheme(entry, hasCursor))
 			fmt.Fprint(w, postCursor)
 			doneWithCursor = true
+
 		} else {
 			fmt.Fprint(w, token.Value)
 		}
@@ -513,8 +561,8 @@ func (m Model) applyTheme(entry chroma.StyleEntry, hasCursor bool) string {
 			out += fmt.Sprintf("\033[48;2;%d;%d;%dm", entry.Background.Red(), entry.Background.Green(), entry.Background.Blue())
 		} else {
 			if hasCursor {
-				// I need to hard code the values here. Taking with RGBA doesn't
-				// work
+				// I need to hard code the values here. Taking the values with RGBA doesn't
+				// work on some terminals
 				// 		r, g, b, _ := m.style.CursorLine.GetBackground().RGBA()
 				// 		fmt.Println(r, g, b)
 
@@ -529,9 +577,9 @@ func (m Model) View() string {
 	sb := new(strings.Builder)
 
 	for ir, r := range m.value {
-		haveCursor := false
+		hasCursor := false
 		if ir == m.row {
-			haveCursor = true
+			hasCursor = true
 		}
 		sb.WriteString(m.style.LineDecorator.Render(fmt.Sprint(ir + 1)))
 		lsb := new(strings.Builder)
@@ -548,9 +596,10 @@ func (m Model) View() string {
 		m.renderLine(
 			hlsbs,
 			lsb.String(),
-			haveCursor,
+			hasCursor,
 		)
-		if haveCursor {
+
+		if hasCursor {
 			sb.WriteString(m.style.cursorLine.Render(hlsbs.String()))
 		} else {
 			sb.WriteString(hlsbs.String())
