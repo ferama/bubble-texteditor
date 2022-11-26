@@ -92,7 +92,7 @@ type Model struct {
 	// syntax color style
 	highlighterStyle string
 
-	Intellisense       func(chroma.Token) []selector.IntellisenseItem
+	Intellisense       func(lastToken, currentToken *chroma.Token) []selector.IntellisenseItem
 	suggestionSelector selector.Model
 }
 
@@ -352,6 +352,20 @@ func (m *Model) updateXOffset() {
 	}
 }
 
+func (m *Model) updateSuggestions() {
+	if m.Intellisense != nil {
+		if lastToken, currentToken, err := m.getCurrentToken(); err == nil {
+			items := m.Intellisense(lastToken, currentToken)
+			m.suggestionSelector.SetItems(items)
+			if len(items) > 0 {
+				m.suggestionSelector.Focus()
+			} else {
+				m.suggestionSelector.Blur()
+			}
+		}
+	}
+}
+
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	// if !m.focused {
 	// 	return m, nil
@@ -365,8 +379,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.KeyMap.CharacterForward):
 			m.cursorRight()
+			m.updateSuggestions()
+
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
 			m.cursorLeft(false /* insideLine */)
+			m.updateSuggestions()
+
 		case key.Matches(msg, m.KeyMap.DeleteCharacterBackward):
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col <= 0 {
@@ -379,14 +397,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					m.SetCursor(m.col - 1)
 				}
 			}
+			m.updateSuggestions()
+
 		case key.Matches(msg, m.KeyMap.LineNext):
 			if !m.suggestionSelector.Focused() {
 				m.cursorDown()
 			}
+
 		case key.Matches(msg, m.KeyMap.LinePrevious):
 			if !m.suggestionSelector.Focused() {
 				m.cursorUp()
 			}
+
 		case key.Matches(msg, m.KeyMap.InsertNewline):
 			if !m.suggestionSelector.Focused() {
 				if len(m.value) >= maxHeight {
@@ -402,20 +424,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 				m.suggestionSelector.Reset()
 			}
+
 		default:
 			m.col = min(m.col, len(m.value[m.row]))
 			m.value[m.row] = append(m.value[m.row][:m.col], append(msg.Runes, m.value[m.row][m.col:]...)...)
 			m.col = clamp(m.col+len(msg.Runes), 0, len(m.value[m.row]))
-
-			if m.Intellisense != nil {
-				if token, err := m.getCurrentToken(); err == nil {
-					items := m.Intellisense(*token)
-					m.suggestionSelector.SetItems(items)
-					if len(items) > 0 {
-						m.suggestionSelector.Focus()
-					}
-				}
-			}
+			m.updateSuggestions()
 		}
 	}
 	m.updateXOffset()
@@ -448,7 +462,7 @@ func (m Model) Value() string {
 	return strings.TrimSuffix(v.String(), "\n")
 }
 
-func (m *Model) getCurrentToken() (*chroma.Token, error) {
+func (m *Model) getCurrentToken() (last, current *chroma.Token, err error) {
 
 	runes := m.value[m.row]
 	line := new(strings.Builder)
@@ -471,15 +485,18 @@ func (m *Model) getCurrentToken() (*chroma.Token, error) {
 
 	it, err := l.Tokenise(nil, source)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	var lastToken, currentToken chroma.Token
 	for token := it(); token != chroma.EOF; token = it() {
 		lastToken = currentToken
-		currentToken = token
+		if token.Type != chroma.TextWhitespace {
+			currentToken = token
+		}
 	}
-
-	return &lastToken, nil
+	fmt.Printf("\033[2K\r%s | %s", currentToken, lastToken)
+	return &lastToken, &currentToken, nil
 }
 
 // renderLine renders code line applying syntax highlights and handling cursor

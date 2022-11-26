@@ -34,9 +34,9 @@ type model struct {
 	err        error
 }
 
-func intellisense(t chroma.Token) []selector.IntellisenseItem {
+func intellisense(l, c *chroma.Token) []selector.IntellisenseItem {
 	resEmpty := make([]selector.IntellisenseItem, 0)
-	resFull := append(resEmpty,
+	resTables := append(resEmpty,
 		selector.IntellisenseItem{
 			Value: "table1",
 			Kind:  "table",
@@ -59,13 +59,30 @@ func intellisense(t chroma.Token) []selector.IntellisenseItem {
 		},
 	)
 
+	resColumns := append(resEmpty,
+		selector.IntellisenseItem{
+			Value: "col1",
+			Kind:  "column",
+		},
+		selector.IntellisenseItem{
+			Value: "col2",
+			Kind:  "column",
+		},
+		selector.IntellisenseItem{
+			Value: "col3",
+			Kind:  "column",
+		},
+	)
+
 	var res []selector.IntellisenseItem
 
-	switch t.Type {
+	switch l.Type {
 	case chroma.Keyword:
-		switch t.Value {
-		case "select":
-			res = resFull
+		switch l.Value {
+		case "select", "where":
+			res = resColumns
+		case "from", "join":
+			res = resTables
 		default:
 			res = resEmpty
 		}
@@ -73,7 +90,7 @@ func intellisense(t chroma.Token) []selector.IntellisenseItem {
 		res = resEmpty
 	}
 
-	fmt.Printf("\033[2K\r%s: %s", t.Type, t.Value)
+	// fmt.Printf("\033[2K\r%s: %s", t.Type, t.Value)
 	return res
 }
 
