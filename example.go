@@ -78,13 +78,15 @@ func intellisense(t chroma.Token) []selector.IntellisenseItem {
 }
 
 func initialModel() model {
+	style.Width(width)
+
 	te := texteditor.New()
 	te.Focus()
 	te.SetSyntax("sql")
-	// te.SetValue(`selec`)
-	te.SetValue(`select *
-from tab1
-where id=120 and f='èasd'`)
+	te.SetValue(`selec`)
+	// 	te.SetValue(`select *
+	// from tab1
+	// where id=120 and f='èasd'`)
 	te.SetSize(width, height)
 	te.Intellisense = intellisense
 	return model{

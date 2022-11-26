@@ -43,7 +43,7 @@ type Model struct {
 func New() Model {
 	vp := viewport.New(20, 8)
 	m := Model{
-		focused:  true,
+		focused:  false,
 		viewport: &vp,
 		cursor:   0,
 		offset:   0,

@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/ferama/bubble-texteditor/texteditor/selector"
 )
 
@@ -153,7 +152,6 @@ func (m *Model) Blur() tea.Cmd {
 	m.style = &m.BlurredStyle
 
 	m.style.LineDecorator.Width(lineDecoratorWidth)
-	m.style.cursorLine.Width(m.viewport.Width)
 	return nil
 }
 
@@ -176,8 +174,6 @@ func (m Model) SetSize(width, height int) {
 // Set textarea width
 func (m Model) SetWidth(width int) {
 	m.viewport.Width = width
-
-	m.style.cursorLine.Width(width)
 }
 
 // Set textarea height
@@ -523,11 +519,12 @@ func (m *Model) renderLine(w io.Writer, source string, hasCursor bool) error {
 		if column < m.xOffset {
 			if columnNext >= m.xOffset {
 				diff := m.xOffset - column
-				token.Value = token.Value[diff:]
+				tv := []rune(token.Value)
+				token.Value = string(tv[diff:])
 				cursorColumn += diff
 				columnNext += diff
 			} else {
-				column += len(token.Value)
+				column += len([]rune(token.Value))
 				continue
 			}
 		}
@@ -582,15 +579,6 @@ func (m Model) applyTheme(entry chroma.StyleEntry, hasCursor bool) string {
 		}
 		if entry.Background.IsSet() {
 			out += fmt.Sprintf("\033[48;2;%d;%d;%dm", entry.Background.Red(), entry.Background.Green(), entry.Background.Blue())
-		} else {
-			if hasCursor {
-				// I need to hard code the values here. Taking the values with RGBA doesn't
-				// work on some terminals
-				// 		r, g, b, _ := m.style.CursorLine.GetBackground().RGBA()
-				// 		fmt.Println(r, g, b)
-
-				out += fmt.Sprintf("\033[48;2;%d;%d;%dm", 50, 50, 50)
-			}
 		}
 	}
 	return out
@@ -622,23 +610,14 @@ func (m Model) View() string {
 			hasCursor,
 		)
 
+		sb.WriteString(hlsbs.String())
 		if hasCursor {
-			sb.WriteString(m.style.cursorLine.Render(hlsbs.String()))
-
 			m.suggestionSelector.SetOffset(m.col + lineDecoratorWidth)
 			sb.WriteString(m.suggestionSelector.View())
-		} else {
-			sb.WriteString(hlsbs.String())
 		}
 		sb.WriteString("\n")
 	}
 
 	m.viewport.SetContent(sb.String())
-	// return m.style.Base.Render(m.viewport.View())
-
-	// m.suggestionSelector.View()
-	return m.style.Base.Render(lipgloss.JoinVertical(
-		lipgloss.Left,
-		m.viewport.View(),
-	))
+	return m.style.Base.Render(m.viewport.View())
 }
